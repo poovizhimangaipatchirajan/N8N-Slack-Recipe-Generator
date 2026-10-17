@@ -1,0 +1,209 @@
+{
+  "name": "Slack Recipe Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "trigger": [
+          "message"
+        ],
+        "channelId": {
+          "__rl": true,
+          "value": "C0C9Q9NTNGM",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.slackTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "3b1ace4f-555d-4e44-a31e-d17cff24e476",
+      "name": "Slack Trigger",
+      "webhookId": "e998b30a-05b9-4da4-8a9c-a504b6f6613d",
+      "credentials": {
+        "slackApi": {
+          "id": "zyFyToIwW20R8iA5",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "=user",
+              "content": "={{ $json.text }}"
+            },
+            {
+              "role": "system",
+              "content": "You are a helpful cooking assistant that creates practical, delicious recipes.\n\nFor every recipe request, ALWAYS include all of these sections in this exact order:\n\n🍽️ RECIPE NAME\nGive the recipe name and a one-sentence description.\n\n⏱️ TIME AND SERVINGS\n- Preparation time\n- Cooking time\n- Total time\n- Servings\n- Difficulty: Easy, Medium, or Hard\n\n🛒 INGREDIENTS\nList every ingredient with quantities and units.\n\n👩‍🍳 INSTRUCTIONS\nProvide numbered, easy-to-follow cooking steps. Include cooking temperatures and timings where appropriate.\n\n💡 COOKING TIPS\nGive two useful tips or substitutions.\n\n🥗 DIETARY NOTES\nMention relevant dietary information based on the ingredients. Do not claim a recipe is allergen-free unless that claim is justified.\n\nFormatting rules:\n- Never omit a required section.\n- Use plain text and simple emoji headings that display well in Slack.\n- Avoid Markdown tables.\n- Adapt the recipe to the user's ingredients, dietary preferences, cuisine, spice level, and serving size.\n- If details are missing, make reasonable assumptions.\n- If the request is unrelated to cooking, respond helpfully and concisely."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        448,
+        0
+      ],
+      "id": "5f01a8e9-6efd-49fe-8de0-e471df26e44f",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "GxvrVccp7SeiE1UB",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst response = $input.first().json;\n\n// Extract the generated text from the OpenAI response.\nconst recipeText = response.output\n  ?.find(item => item.type === 'message')\n  ?.content\n  ?.find(item => item.type === 'output_text')\n  ?.text;\n\nif (!recipeText) {\n  throw new Error('No recipe text found in the OpenAI response.');\n}\n\n// Remove common Markdown formatting for a cleaner Slack message.\nconst cleanText = recipeText\n  .replace(/\\r\\n/g, '\\n')\n  .replace(/\\*\\*(.*?)\\*\\*/g, '$1')\n  .replace(/^#{1,6}\\s*/gm, '')\n  .replace(/^\\s*---+\\s*$/gm, '')\n  .replace(/[ \\t]+$/gm, '')\n  .replace(/\\n{3,}/g, '\\n\\n')\n  .trim();\n\n// Return both the clean recipe and the original text.\nreturn [{\n  json: {\n    recipe: cleanText,\n    originalRecipe: recipeText\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        816,
+        0
+      ],
+      "id": "82bdc71a-c939-4b6f-acb5-b42df02714b9",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0C9Q9NTNGM",
+          "mode": "id"
+        },
+        "text": "={{ $json.recipe }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "a89093c6-4ee4-436f-819f-a0871036ccaf",
+      "name": "Send a message",
+      "webhookId": "35348a07-ea48-4e25-98c1-9e108e077c15",
+      "credentials": {
+        "slackApi": {
+          "id": "zyFyToIwW20R8iA5",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "383dd03c-a283-465e-bf46-78254cb96a56",
+              "leftValue": "={{ !!$json.user && !$json.bot_id && $json.subtype !== \"bot_message\" }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        224,
+        0
+      ],
+      "id": "9df743dc-e5f6-4053-94de-d9d135fc8c84",
+      "name": "If"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Slack Trigger": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "bfc4f29f-802e-461e-bb90-a93df39c6873",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2b2f13f10e6d4e76bbf04ee6a1034020e8799751b37b00a8f0db863424fc3a2f"
+  },
+  "nodeGroups": [],
+  "id": "jkUAo1JsgBqKpgMR",
+  "tags": []
+}
